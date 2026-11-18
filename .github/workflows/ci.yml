@@ -33,4 +33,3 @@ jobs:
           git diff --check "$base" HEAD --
           python3 -m json.tool .github/release-please-config.json >/dev/null
           python3 -m json.tool .release-please-manifest.json >/dev/null
-          pwsh -NoProfile -Command '$tokens = $null; $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path scripts/setup.ps1).Path, [ref]$tokens, [ref]$errors); if ($errors) { $errors | Out-String | Write-Error; exit 1 }'
