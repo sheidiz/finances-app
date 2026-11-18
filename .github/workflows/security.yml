@@ -1,0 +1,48 @@
+name: Security
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan Git history
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=8.30.0
+          work=$(mktemp -d)
+          trap 'rm -rf -- "$work"' EXIT
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          curl -fsSL --retry 3 "$url/$archive" -o "$work/$archive"
+          printf '%s  %s\n' '79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e' "$work/$archive" |
+            sha256sum --check --strict
+          tar -xzf "$work/$archive" -C "$work" gitleaks
+          printf '[extend]\nuseDefault = true\n' > "$work/default.toml"
+          touch "$work/empty.ignore"
+          "$work/gitleaks" git --config "$work/default.toml" --gitleaks-ignore-path "$work/empty.ignore" --ignore-gitleaks-allow --redact=100 --no-banner --log-opts="HEAD" .
+
+  dependencies:
+    name: Dependency review
+    if: github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9 # v4.7.1
+        with:
+          fail-on-severity: high
